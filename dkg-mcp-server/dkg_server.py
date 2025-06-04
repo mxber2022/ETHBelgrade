@@ -328,6 +328,81 @@ Finality: {finality}
         
         return error_message
 
+@mcp.tool()
+async def analyze_post_impact_on_users(content: str, user_bios: list, ctx: Context = None) -> dict:
+    """
+    Analyze the impact of a tweet on a list of users based on their bios.
+    Args:
+        content: The tweet text.
+        user_bios: List of user bios (strings).
+    Returns:
+        Impact analysis for each user, overall trust score adjustment, and token reward.
+    """
+    negative_keywords = ["fuck", "hate", "violence", "scam", "fake", "mislead", "harm"]
+    sensitive_topics = ["mental health", "wellness", "support", "help", "anxiety"]
+    trust_score_adjustment = 0
+    token_reward = 0
+    impact_category = "neutral"
+    user_impacts = []
+
+    for bio in user_bios:
+        impact = "neutral"
+        adjustment = 0
+
+        if any(word in content.lower() for word in negative_keywords):
+            if any(topic in bio.lower() for topic in sensitive_topics):
+                impact = "harmful"
+                adjustment = 0  # No negative, just zero
+            else:
+                impact = "mixed"
+                adjustment = 0
+        elif any(topic in content.lower() for topic in sensitive_topics):
+            if any(topic in bio.lower() for topic in sensitive_topics):
+                impact = "positive"
+                adjustment = +2
+            else:
+                impact = "neutral"
+                adjustment = 1
+
+        user_impacts.append({
+            "bio": bio,
+            "impact": impact,
+            "trust_score_shift": adjustment
+        })
+        trust_score_adjustment += adjustment
+
+    # Clamp to zero if negative
+    trust_score_adjustment = max(0, trust_score_adjustment)
+    token_reward = trust_score_adjustment
+
+    if trust_score_adjustment == 0:
+        impact_category = "harmful"
+    elif trust_score_adjustment > 0:
+        impact_category = "positive"
+    else:
+        impact_category = "neutral"
+
+    return {
+        "post": content,
+        "impact_category": impact_category,
+        "trust_score_adjustment": trust_score_adjustment,
+        "token_reward": token_reward,
+        "user_impacts": user_impacts,
+        "ai_feedback": (
+            "Your post may contribute to stigma and discourage people from seeking help. "
+            "Please reconsider posting or revise to express your view more constructively."
+            if impact_category == "harmful" else
+            "Your post is likely to have a neutral or positive impact."
+        ),
+        "next_action_prompt": (
+            "What would you like to do next?\n"
+            "1. Post the tweet as is\n"
+            "2. Cancel\n"
+            "3. Improve the tweet and try again\n"
+            "Reply with 'post', 'cancel', or 'improve'."
+        )
+    }
+
 # This middleware fixes the content type and endpoint URL in SSE responses,
 # enabling the DKG MCP server to function with agents built in Microsoft Copilot Studio
 class FixSSEEndpointMiddleware(BaseHTTPMiddleware):
