@@ -403,6 +403,55 @@ async def analyze_post_impact_on_users(content: str, user_bios: list, ctx: Conte
         )
     }
 
+@mcp.tool()
+async def post_tweet(content: str, impact_category: str = "", trust_score_adjustment: int = 0, token_reward: int = 0, ctx: Context = None) -> dict:
+    """
+    Post the tweet to X (Twitter) and log it as a knowledge asset on the DKG.
+    Args:
+        content: The tweet text to post.
+        impact_category: The impact category from analysis.
+        trust_score_adjustment: The trust score adjustment from analysis.
+        token_reward: The token reward from analysis.
+    Returns:
+        Confirmation of posting and DKG asset creation.
+    """
+    # TODO: Integrate with Twitter API here (currently simulated)
+    tweet_status = "success"
+    tweet_message = f"Your tweet has been posted: {content}"
+    tweet_note = "This is a simulation. Integrate with the Twitter API for real posting."
+
+    # Prepare the knowledge asset content
+    asset_content = {
+        "@context": "https://schema.org",
+        "@type": "SocialMediaPosting",
+        "articleBody": content,
+        "impactCategory": impact_category,
+        "trustScoreAdjustment": trust_score_adjustment,
+        "tokenReward": token_reward
+    }
+
+    # Log the post as a knowledge asset on the DKG
+    try:
+        dkg_result = dkg.asset.create(
+            content=asset_content,
+            options={
+                "epochs_num": 2,
+                "minimum_number_of_finalization_confirmations": 3,
+                "minimum_number_of_node_replications": 1
+            },
+        )
+        ual = dkg_result.get("UAL", "Unknown")
+        dkg_message = f"Knowledge asset created on DKG. UAL: {ual}"
+    except Exception as e:
+        dkg_message = f"Failed to create knowledge asset on DKG: {str(e)}"
+
+    return {
+        "status": tweet_status,
+        "message": tweet_message,
+        "note": tweet_note,
+        "dkg_log": dkg_message
+    }
+
 # This middleware fixes the content type and endpoint URL in SSE responses,
 # enabling the DKG MCP server to function with agents built in Microsoft Copilot Studio
 class FixSSEEndpointMiddleware(BaseHTTPMiddleware):
